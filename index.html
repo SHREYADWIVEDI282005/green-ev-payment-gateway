@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Slot Booking</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(120deg, #00bcd4, #8bc34a);
+            color: #fff;
+            text-align: center;
+        }
+        header {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        form {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+        form label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 5px;
+        }
+        form button {
+            width: 100%;
+            background: #ff9800;
+            color: #fff;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+        form button:hover {
+            background: #f57c00;
+            transform: scale(1.05);
+        }
+        h1 {
+            margin: 30px 0;
+            font-size: 36px;
+        }
+        footer {
+            margin-top: 50px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .message {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>EV Charging Slot Booking</header>
+    <h1>Book Your EV Charging Slot</h1>
+    <form id="bookingForm">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+
+        <label for="mobile">Mobile:</label>
+        <input type="text" id="mobile" name="mobile" placeholder="Enter your mobile number" required>
+
+        <label for="time">Preferred Time:</label>
+        <input type="time" id="time" name="time" required>
+
+        <button type="submit">Book Now</button>
+    </form>
+
+    <div class="message" id="confirmationMessage"></div>
+
+    <footer>© 2024 EV Charging System | All Rights Reserved</footer>
+
+    <script>
+        document.getElementById("bookingForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                // Step 1: Create Razorpay order
+                const response = await fetch("/create_order", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Step 2: Initialize Razorpay payment
+                const options = {
+                    key: data.key,
+                    amount: data.amount,
+                    currency: "INR",
+                    name: "EV Charging Slot",
+                    description: `Booking for ${data.time}`,
+                    order_id: data.order_id,
+                    handler: async function (response) {
+                        const verifyResponse = await fetch("/verify_payment", {
+                            method: "POST",
+                            body: JSON.stringify(response),
+                            headers: { "Content-Type": "application/json" },
+                        });
+
+                        const verifyData = await verifyResponse.json();
+
+                        if (verifyData.error) {
+                            alert("Payment verification failed!");
+                        } else {
+                            // Show confirmation message
+                            const messageDiv = document.getElementById("confirmationMessage");
+                            messageDiv.style.display = "block";
+                            messageDiv.innerHTML = `
+                                <h2>Booking Confirmed!</h2>
+                                <p>Verification ID: <strong>${verifyData.verification_id}</strong></p>
+                                <p>Thank you! Your slot at ${data.time} is booked.</p>
+                            `;
+                        }
+                    },
+                    prefill: {
+                        name: document.getElementById("name").value,
+                        contact: document.getElementById("mobile").value,
+                    },
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                alert("An error occurred. Please try again later.");
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
